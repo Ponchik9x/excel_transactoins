@@ -33,7 +33,6 @@ def mask_card(card_name: str) -> str:
     encrypted_card = ""
     for num in card_number:
         encrypted_card = f"{num.group()[-4:]}"
-
     return encrypted_card
 
 
@@ -73,7 +72,8 @@ def get_top_transactions(list_of_transactions: list[dict | dict]) -> list[dict]:
 
 def get_date(date_: str) -> str:
     """Функция возвращает строку с датой в формате "ДД.ММ.ГГГГ"("11.03.2024").
-    :param date_: datetime:
+    :param date_: str.
+    :return: str.
     """
     split_date = date_.split()
     return split_date[0]
@@ -89,9 +89,9 @@ def get_currency_rates() -> tuple[dict[str, str | Any], dict[str, str | Any]]:
     url_usd_to_rub = "https://api.apilayer.com/exchangerates_data/latest?symbols=RUB&base=USD"
 
     headers = {"apikey": f"{os.getenv('API_LAYER_KEY')}"}
-    payload_eur = {}
+    payload_eur: dict = {}
     response_eur = requests.request("GET", url_eur_to_rub, headers=headers, data=payload_eur)
-    payload_usd = {}
+    payload_usd: dict = {}
     response_usd = requests.request("GET", url_usd_to_rub, headers=headers, data=payload_usd)
 
     result_eur = response_eur.json()
@@ -105,27 +105,10 @@ def get_currency_rates() -> tuple[dict[str, str | Any], dict[str, str | Any]]:
     return result
 
 
-def get_stock_price():
-    """
-
-    :return:
-    """
-    stocks_list = ["AAPL", "AMZN", "GOOGL", "MSFT", "TSLA"]
-    price_stocks = []
-
-    api_key_twelvedata = f"{os.getenv('API_TWELVE_DATA')}"
-
-    for stock in stocks_list:
-        response = requests.get(f"https://api.twelvedata.com/price?symbol={stock}&apikey={api_key_twelvedata}")
-        dict_result = response.json()
-        price_element = dict_result.get("price")
-        price_stocks.append(price_element)
-
-
-def get_result_list_from_date(date_str, delta_date: str = "M"):
+def get_result_list_from_date(date_str: str, delta_date: str = "M") -> list[dict | dict]:
     """qwe"""
     date = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-    file = read_file_exel("data/operations.xlsx")
+    file: list[dict] = read_file_exel("data/operations.xlsx")
 
     if delta_date == "W":
         start_date = date - relativedelta(weeks=1)
@@ -166,7 +149,7 @@ def total_amount_from_list(list_dicts: list[dict | dict]) -> float:
     return total_amount
 
 
-def get_total_income(data_frame_list):
+def get_total_income(data_frame_list: pd.DataFrame) -> Any:
     """
 
     :param data_frame_list:
@@ -185,7 +168,7 @@ def get_total_income(data_frame_list):
     return total_sum_income
 
 
-def list_pd_income(data_frame_list):
+def list_pd_income(data_frame_list: pd.DataFrame) -> pd.DataFrame:
     """Группирует поступления по категориям и возвращает основные категории и их сумму."""
     income_by_category = (
         data_frame_list[data_frame_list["Сумма операции"] > 0]
@@ -201,8 +184,8 @@ def list_pd_income(data_frame_list):
     return combined_income
 
 
-def list_pd_outcome(filtered_list):
-    """weqweqe"""
+def list_pd_outcome(filtered_list: pd.DataFrame) -> pd.DataFrame:
+    """функция получения списка исходящих транзакций"""
     income_by_category = (
         filtered_list[filtered_list["Сумма операции"] < 0].groupby("Категория")["Сумма операции"].sum().reset_index()
     )
@@ -221,8 +204,8 @@ def list_pd_outcome(filtered_list):
     return combined_income
 
 
-def list_pd_outcome_transfers_and_cash(data_frame_list):
-    """weqweqe"""
+def list_pd_outcome_transfers_and_cash(data_frame_list: pd.DataFrame) -> pd.DataFrame:
+    """функция получения переволов и наличных"""
     income_by_category = (
         data_frame_list[data_frame_list["Сумма операции"] < 0]
         .groupby("Категория")["Сумма операции"]

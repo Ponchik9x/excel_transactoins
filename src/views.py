@@ -1,4 +1,6 @@
 import datetime
+import json
+import logging
 import os
 
 import pandas as pd
@@ -11,32 +13,46 @@ from utils import (get_date, get_result_list_from_date, get_top_transactions, ge
 
 load_dotenv(".env")
 
+
+logger = logging.getLogger("views")
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler("logs/views.log", mode="w")
+file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s: %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+
 datetime_today = datetime.datetime.now()
 formatted_date = datetime_today.strftime("%Y-%m-%d %H:%M:%S")
 
 formatted_date = formatted_date[:3] + "1" + formatted_date[4:]
 
 
-# filtered_df = filtered_df.loc[
-#     (pd.to_datetime(filtered_df['Дата операции'], format="%d.%m.%Y %H:%M:%S", dayfirst=True) <= data_time) &
-#     (pd.to_datetime(filtered_df['Дата операции'], format="%d.%m.%Y %H:%M:%S", dayfirst=True) >= data_time.replace(
-#         day=1))
-#     ]
-
-
-def generate_json_greeting_head(data_str: str) -> dict[str, list[dict[str, str | float] | dict[str, str | float]]]:
+def generate_json_greeting_head(data_str: str) -> str:
     """Основная функция для главной страницы.
     Принимает на вход строку с датой и временем в формате YYYY-MM-DD HH:MM:SS
     Возвращает JSON-ответ
     Использованы библиотеки: json, datetime, logging, pandas
     """
+    logger.info("Чтение файла")
+
     file = read_file_exel("data/operations.xlsx")
+
+    logger.info("Преобразование даты в формат datetime")
 
     id_datatime = datetime.datetime.strptime(data_str, "%Y-%m-%d %H:%M:%S")
 
-    my_dict = {"greeting": "", "cards": [], "top_transactions": [], "currency_rates": [], "stock_prices": []}
+    my_dict: dict[str, list | str] = {
+        "greeting": "",
+        "cards": [],
+        "top_transactions": [],
+        "currency_rates": [],
+        "stock_prices": [],
+    }
 
     greeting = {"morning": "Доброе утро", "day": "Добрый день", "evening": "Добрый вечер", "night": "Доброй ночи"}
+
+    logger.info("Определение времени суток")
 
     if id_datatime.hour < 12:
         my_dict["greeting"] = greeting["morning"]
@@ -47,15 +63,21 @@ def generate_json_greeting_head(data_str: str) -> dict[str, list[dict[str, str |
     else:
         my_dict["greeting"] = greeting["night"]
 
+    logger.info("Получение списка карт")
+
     unique_card = get_unique_card_number(file)
+
+    logger.info("Добавление значений по ключу my_dict['cards']")
 
     for card in unique_card:
         last_digits = mask_card(card)
         cashback = round(get_total_expenses(file, card) / 100, 2)
         total_expenses_from_card = get_total_expenses(file, card)
-        my_dict["cards"] = [
+        my_dict["cards"].append(
             {"last_digits": last_digits, "total_spent": total_expenses_from_card, "cashback": cashback}
-        ]
+        )
+
+    logger.info("Добавление значений по ключу my_dict['top_transactions']")
 
     for d in get_top_transactions(file):
         need_dict = {
@@ -65,6 +87,8 @@ def generate_json_greeting_head(data_str: str) -> dict[str, list[dict[str, str |
             "description": d["Описание"],
         }
         my_dict["top_transactions"].append(need_dict)
+
+    logger.info("Получение курса валют по API KEY")
 
     url_eur_to_rub = "https://api.apilayer.com/exchangerates_data/latest?symbols=RUB&base=EUR"
     url_usd_to_rub = "https://api.apilayer.com/exchangerates_data/latest?symbols=RUB&base=USD"
@@ -76,29 +100,37 @@ def generate_json_greeting_head(data_str: str) -> dict[str, list[dict[str, str |
 
     result_eur = response_eur.json()
     result_usd = response_usd.json()
+
     my_dict_usd = {"currency": "USD", "rate": result_usd["rates"]["RUB"]}
     my_dict_eur = {"currency": "EUR", "rate": result_eur["rates"]["RUB"]}
+
+    logger.info("Добавление значений по ключу my_dict['currency_rates']")
+
     my_dict["currency_rates"].append(my_dict_usd)
     my_dict["currency_rates"].append(my_dict_eur)
 
+    logger.info("Получение стоимости акций по списку и по API KEY")
+
     stocks_list = ["AAPL", "AMZN", "GOOGL", "MSFT", "TSLA"]
+
     headers_twelve_data = f"{os.getenv('API_TWELVE_DATA')}"
+
+    logger.info("Добавление значений по ключу my_dict['stock_prices']")
+
     for stock in stocks_list:
         response = requests.get(f"https://api.twelvedata.com/price?symbol={stock}&apikey={headers_twelve_data}")
         dict_result = response.json()
         price_element = {"stock": stock, "price": dict_result.get("price")}
         my_dict["stock_prices"].append(price_element)
 
-    return my_dict
+    logger.info("Возвращение словаря с данными")
+
+    result = json.dumps(my_dict)
+
+    return result
 
 
-def generate_json_greeting_(date_str: str, delta_date: str = "M") -> dict[
-    str,
-    dict[str, int | list[dict[str, str | int]]]
-    | list[dict[str, str | float]]
-    | dict[str, int | list[dict[str, str | int]]]
-    | list[dict[str, str | float]],
-]:
+def generate_json_greeting_(date_str: str, delta_date: str = "M") -> str:
     """Функция для страницы «События».
     Функция принимает на вход DataFrame.
     Возвращает JSON-ответ.
@@ -161,4 +193,6 @@ def generate_json_greeting_(date_str: str, delta_date: str = "M") -> dict[
         price_element = {"stock": stock, "price": dict_result.get("price")}
         my_dict["stock_prices"].append(price_element)
 
-    return my_dict
+    result = json.dumps(my_dict)
+
+    return result
