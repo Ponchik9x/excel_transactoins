@@ -10,6 +10,9 @@ python = "^3.12"
 pytest = "^8.3.4"
 pytest-cov = "^6.0.0"
 requests = "^2.32.3"
+openpyxl = "^3.1.5"
+pandas = "^2.2.3"
+data = "^0.4"
 
 [tool.poetry.group.lint.dependencies]
 black = "^25.1.0"
@@ -20,3 +23,28 @@ flake8 = "^7.1.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 119
+exclude = '''
+/(
+    \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+)/
+'''
+
+[tool.isort]
+line_length = 119
+
+[tool.mypy]
+disallow_untyped_defs = true
+warn_return_any = true
+exclude = 'venv'
+
